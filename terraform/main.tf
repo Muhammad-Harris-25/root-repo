@@ -1,0 +1,95 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+# Use default VPC lookup (simpler)
+data "aws_vpc" "default" {
+  default = true
+}
+
+# Security group to allow SSH from your IP and HTTP from anywhere (adjust for prod)
+resource "aws_security_group" "ssh_http" {
+  name        = "ci_cd_sg"
+  description = "Allow SSH from admin and HTTP from anywhere"
+  vpc_id      = data.aws_vpc.default.id
+
+  ingress {
+    description = "SSH from admin IP"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.my_ip_cidr]
+  }
+
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Key pair created from public key content (we provide public key via variable/CI)
+resource "tls_private_key" "dummy" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+  # dummy private key only to satisfy provider order if you want; not used
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_key_pair" "deployer" {
+  key_name   = var.key_name
+  public_key = var.ssh_public_key
+}
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+  }
+}
+
+resource "aws_instance" "web" {
+  count         = var.instance_count
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = var.instance_type
+  key_name      = aws_key_pair.deployer.key_name
+  vpc_security_group_ids = [aws_security_group.ssh_http.id]
+
+  tags = {
+    Name = "ci-cd-web-${count.index + 1}"
+  }
+
+  # optionally add a small user_data to ensure packages available for Ansible later
+  user_data = <<-EOF
+              #!/bin/bash
+              apt-get update -y
+              apt-get install -y python3
+              EOF
+}
+
+output "instance_public_ips" {
+  value = aws_instance.web.*.public_ip
+  description = "Public IPs of created web instances"
+}

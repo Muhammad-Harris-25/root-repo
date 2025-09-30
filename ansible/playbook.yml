@@ -1,0 +1,43 @@
+- name: Configure web servers and deploy frontend
+  hosts: web
+  become: yes
+  vars:
+    index_src: "../app/index.html"
+    index_dest: "/var/www/html/index.html"
+
+  tasks:
+    - name: Wait for SSH to be ready
+      wait_for:
+        port: 22
+        host: "{{ inventory_hostname }}"
+        timeout: 300
+        state: started
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: latest
+
+    - name: Ensure nginx is started and enabled
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Copy front-end index.html
+      copy:
+        src: "{{ index_src }}"
+        dest: "{{ index_dest }}"
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+    - name: Restart nginx to pick up new files
+      service:
+        name: nginx
+        state: restarted
