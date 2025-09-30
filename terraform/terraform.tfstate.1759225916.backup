@@ -1,7 +1,7 @@
 {
   "version": 4,
   "terraform_version": "1.13.3",
-  "serial": 23,
+  "serial": 19,
   "lineage": "dccc84cb-74af-0120-24de-4e5d41122cc2",
   "outputs": {
     "instance_public_ips": {
@@ -453,13 +453,16 @@
             "key_name_prefix": "",
             "key_pair_id": "key-072072c1bc5036c5b",
             "key_type": "rsa",
-            "public_key": null,
+            "public_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDOEsgn7gBexEzm/Bdn/1yAQ4PS5oKQRUv2IBsPNNz9eoqDrJUu/9rc65BdCvVtHbqDY/0M39X4SQ40+FTeSb2yLCMD9R2vqzKfyCz/ngUuZnxQmOf8Z789FI47pkMJG0oeuAYRmpyF3VnWae71ouN/hI2aGSEEJoxB4pI0PCVtsDxueQqGk5yRCuTUbvgIoLLRjYlJSqIZsG2eJLp46dklLDFQKfk1Tz8LnFSexgT4Paw81onLrtg5Qi9QTnORR+kjaeq4tw5M8cjLm10zrrivDb7T0mb8vLLUXnyeq/zZSQy5hWACmG0zf/CpsXx585KaHYF8j8MCXi1M1Tfgs+sU2MkMvZkv2ZC+KfV/8pSWioRgKq7r2NbAg0B0wdMTvCQqyB8jhblJVDi1+ibhOg/mDNl+VNw9OYEYyuylIzBv6AAigRfYyJ3TikzSjvTWCH5OEmZaZLAikFJ29279oUGZbSX0TIh4pLYFkl4Tz3Cj2QbZJKke+2V+VWBVlatSzLTpAXTOJ+DcHrVuUFlxUZktOc1fz+/M02u7m6L6p71e3Hxwi/TDSrvv341lqG72H/cFLwSsOacJZuVwhwtXhHndDljSkj16EkCzjkJ+cAz1zt1dMzGItefWqKHDDbtRf4nDWJ/Eek6h9/DJE/INI/KHWQpFC443qKlaX+zGZFiteQ==",
             "tags": {},
             "tags_all": {}
           },
           "sensitive_attributes": [],
           "identity_schema_version": 0,
-          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ=="
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "tls_private_key.deployer"
+          ]
         }
       ]
     },
@@ -521,7 +524,7 @@
             "name": "ci_cd_sg",
             "name_prefix": "",
             "owner_id": "883086653560",
-            "revoke_rules_on_delete": null,
+            "revoke_rules_on_delete": false,
             "tags": {},
             "tags_all": {},
             "timeouts": null,
@@ -529,7 +532,10 @@
           },
           "sensitive_attributes": [],
           "identity_schema_version": 0,
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6OTAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIxIn0="
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6OTAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIxIn0=",
+          "dependencies": [
+            "data.aws_vpc.default"
+          ]
         }
       ]
     },
