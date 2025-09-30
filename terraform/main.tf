@@ -4,6 +4,14 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.0"
+    }
   }
 }
 
@@ -11,12 +19,34 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Use default VPC lookup (simpler)
+# Use default VPC lookup
 data "aws_vpc" "default" {
   default = true
 }
 
-# Security group to allow SSH from your IP and HTTP from anywhere (adjust for prod)
+# ---------------------------
+# Generate SSH key pair locally
+# ---------------------------
+resource "tls_private_key" "deployer" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "deployer" {
+  key_name   = "deployer-key"
+  public_key = tls_private_key.deployer.public_key_openssh
+}
+
+# Save private key locally
+resource "local_file" "private_key" {
+  content         = tls_private_key.deployer.private_key_pem
+  filename        = "${path.module}/keys/deployer.pem"
+  file_permission = "0600"
+}
+
+# ---------------------------
+# Security Group
+# ---------------------------
 resource "aws_security_group" "ssh_http" {
   name        = "ci_cd_sg"
   description = "Allow SSH from admin and HTTP from anywhere"
@@ -46,21 +76,9 @@ resource "aws_security_group" "ssh_http" {
   }
 }
 
-# Key pair created from public key content (we provide public key via variable/CI)
-resource "tls_private_key" "dummy" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-  # dummy private key only to satisfy provider order if you want; not used
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "aws_key_pair" "deployer" {
-  key_name   = var.key_name
-  public_key = var.ssh_public_key
-}
-
+# ---------------------------
+# Ubuntu AMI
+# ---------------------------
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
@@ -70,6 +88,9 @@ data "aws_ami" "ubuntu" {
   }
 }
 
+# ---------------------------
+# EC2 Instances
+# ---------------------------
 resource "aws_instance" "web" {
   count                  = var.instance_count
   ami                    = data.aws_ami.ubuntu.id
@@ -81,7 +102,6 @@ resource "aws_instance" "web" {
     Name = "ci-cd-web-${count.index + 1}"
   }
 
-  # optionally add a small user_data to ensure packages available for Ansible later
   user_data = <<-EOF
               #!/bin/bash
               apt-get update -y
@@ -89,7 +109,15 @@ resource "aws_instance" "web" {
               EOF
 }
 
+# ---------------------------
+# Outputs
+# ---------------------------
 output "instance_public_ips" {
   value       = aws_instance.web.*.public_ip
   description = "Public IPs of created web instances"
+}
+
+output "private_key_path" {
+  value       = local_file.private_key.filename
+  description = "Path to the generated private key for SSH"
 }

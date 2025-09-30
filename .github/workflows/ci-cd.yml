@@ -10,6 +10,11 @@ jobs:
   terraform_apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
+    env:
+      # fallback envs (Terraform also accepts -var below)
+      TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+      TF_VAR_my_ip_cidr: ${{ secrets.MY_IP_CIDR }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
     outputs:
       ips: ${{ steps.get_ips.outputs.ips }}
     steps:
@@ -29,71 +34,10 @@ jobs:
       - name: Create keys folder and write public key
         run: |
           mkdir -p keys
-          echo "${{ secrets.SSH_PUBLIC_KEY }}" > keys/deployer.pub
+          # write public key exactly as stored in Secrets (no added newlines)
+          printf '%s' "${{ secrets.SSH_PUBLIC_KEY }}" > keys/deployer.pub
           chmod 644 keys/deployer.pub
 
-      - name: Terraform Init
-        working-directory: terraform
-        run: terraform init -input=false
-
-      - name: Terraform Plan
-        working-directory: terraform
-        run: terraform plan -out=tfplan -input=false
-
-      - name: Terraform Apply
-        working-directory: terraform
-        run: terraform apply -auto-approve tfplan
-
-      - name: Capture Terraform outputs (JSON)
-        id: get_ips
-        working-directory: terraform
+      - name: Debug: show public key exists & length (will not print secret content)
         run: |
-          terraform output -json > tf_out.json
-          # extract IPs array and join by comma
-          IPS=$(jq -r '.instance_public_ips.value | join(",")' tf_out.json)
-          echo "ips=$IPS" >> $GITHUB_OUTPUT
 
-  ansible_deploy:
-    name: Ansible Deploy
-    needs: terraform_apply
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python and Ansible
-        run: |
-          sudo apt-get update -y
-          python3 -m pip install --upgrade pip
-          pip3 install ansible
-
-      - name: Prepare SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          # Avoid host key checking for demo (not recommended for prod)
-          echo -e "Host *\n  StrictHostKeyChecking no\n  UserKnownHostsFile=/dev/null\n" > ~/.ssh/config
-          chmod 600 ~/.ssh/config
-
-      - name: Create Ansible inventory from Terraform outputs
-        run: |
-          IPS="${{ needs.terraform_apply.outputs.ips }}"
-          echo "Generating inventory for IPs: $IPS"
-          IFS=',' read -r -a ADDR <<< "$IPS"
-          mkdir -p ansible
-          echo "[web]" > ansible/inventory
-          for ip in "${ADDR[@]}"; do
-            echo "$ip ansible_user=ubuntu ansible_private_key_file=~/.ssh/id_rsa" >> ansible/inventory
-          done
-          echo "Inventory content:"
-          cat ansible/inventory
-
-      - name: Display inventory (debug)
-        run: cat ansible/inventory
-
-      - name: Run Ansible playbook
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
-        run: |
-          ansible-playbook -i ansible/inventory ansible/playbook.yml
