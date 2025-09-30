@@ -1,0 +1,11 @@
+# Terraform cache / local files
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/tfplan
+terraform/tf-debug.log
+terraform/plan.log
+terraform/apply.log
+tfplan
+*.log
+tf-backups/
+keys/
